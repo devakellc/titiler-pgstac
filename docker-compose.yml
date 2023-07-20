@@ -51,8 +51,9 @@ services:
       # TiTiler Config
       - MOSAIC_CONCURRENCY=5
       # AWS S3 endpoint config
-      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REQUEST_PAYER=${AWS_REQUEST_PAYER}  
     volumes:
       - ./benchmark:/tmp/benchmark
     depends_on:
@@ -109,8 +110,9 @@ services:
       - MOSAIC_CONCURRENCY=5
       # - RIO_TILER_MAX_THREADS=2
       # AWS S3 endpoint config
-      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REQUEST_PAYER=${AWS_REQUEST_PAYER}  
     volumes:
       - ./benchmark:/tmp/benchmark
     depends_on:
@@ -119,7 +121,8 @@ services:
   database:
     container_name: stac-db
     platform: linux/amd64
-    image: ghcr.io/stac-utils/pgstac:v${PGSTAC_VERSION-0.7.9}
+    # image: ghcr.io/stac-utils/pgstac:v${PGSTAC_VERSION-0.7.9}
+    image: ghcr.io/stac-utils/pgstac:v0.6.4
     environment:
       - POSTGRES_USER=username
       - POSTGRES_PASSWORD=password
@@ -131,6 +134,7 @@ services:
     command: postgres -N 500
     volumes:
       - ./.pgdata:/var/lib/postgresql/data
+      - /home/ubuntu/data/data:/opt/src/data
 
 networks:
   default:

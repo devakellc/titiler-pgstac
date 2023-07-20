@@ -46,6 +46,7 @@ from titiler.core.resources.enums import ImageType, MediaType, OptionalHeader
 from titiler.core.resources.responses import GeoJSONResponse, XMLResponse
 from titiler.mosaic.factory import PixelSelectionParams
 from titiler.pgstac import model
+from titiler.pgstac import factory as TitilerPgSTACFactory
 from titiler.pgstac.dependencies import (
     BackendParams,
     PathParams,
@@ -112,6 +113,99 @@ class MosaicTilerFactory(BaseTilerFactory):
 
         if self.add_viewer:
             self._map_routes()
+        
+        # POST Custom feature crop endpoint
+        @self.router.post(
+            "/{searchid}/feature", **img_endpoint_params,
+        )
+        @self.router.post(
+            "/{searchid}/feature.{format}", **img_endpoint_params,
+        )
+        
+        def geojson_crop(
+            request: Request,
+            geojson: Annotated[
+                Feature,
+                Body(description="GeoJSON Feature."),
+            ],
+            searchid=Depends(self.path_dependency),
+            format: Annotated[
+                ImageType,
+                "Default will be automatically defined if the output image needs a mask (png) or not (jpeg).",
+            ] = None,
+            layer_params=Depends(self.layer_dependency),
+            dataset_params=Depends(self.dataset_dependency),
+            pixel_selection=Depends(self.pixel_selection_dependency),
+            buffer: Annotated[
+                Optional[float],
+                Query(
+                    gt=0,
+                    title="Tile buffer.",
+                    description="Buffer on each side of the given tile. It must be a multiple of `0.5`. Output **tilesize** will be expanded to `tilesize + 2 * buffer` (e.g 0.5 = 257x257, 1.0 = 258x258).",
+                ),
+            ] = None,
+            post_process=Depends(self.process_dependency),
+            rescale=Depends(self.rescale_dependency),
+            color_formula: Annotated[
+                Optional[str],
+                Query(
+                    title="Color Formula",
+                    description="rio-color formula (info: https://github.com/mapbox/rio-color)",
+                ),
+            ] = None,
+            colormap=Depends(self.colormap_dependency),
+            render_params=Depends(self.render_dependency),
+            pgstac_params: PgSTACParams = Depends(),
+            backend_params=Depends(self.backend_dependency),
+            reader_params=Depends(self.reader_dependency),
+            env=Depends(self.environment_dependency),
+        ):
+            """Create image from a geojson feature."""
+            threads = int(os.getenv("MOSAIC_CONCURRENCY", MAX_THREADS))
+
+            with rasterio.Env(**self.gdal_config):
+                with self.reader(
+                    searchid,
+                    reader_options={**reader_params},
+                    **backend_params,
+                ) as src_dst:
+                    image, assets = src_dst.feature(
+                        geojson.dict(exclude_none=True),
+                        pixel_selection=pixel_selection.method(),
+                        threads=threads,
+                        max_size=max_size,
+                        **layer_params,
+                        **dataset_params,
+                        **pgstac_params,
+                    )
+
+            if post_process:
+                image = post_process(image)
+
+            if rescale:
+                image.rescale(rescale)
+
+            if color_formula:
+                image.apply_color_formula(color_formula)
+
+            if colormap:
+                image = image.apply_colormap(colormap)
+
+            if not format:
+                format = ImageType.jpeg if image.mask.all() else ImageType.png
+
+            content = image.render(
+                img_format=format.driver,
+                **format.profile,
+                **render_params,
+            )
+
+            headers: Dict[str, str] = {}
+            if OptionalHeader.x_assets in self.optional_headers:
+                ids = [x["id"] for x in assets]
+                headers["X-Assets"] = ",".join(ids)
+
+            return Response(content, media_type=format.mediatype, headers=headers)
 
     def _tiles_routes(self) -> None:
         """register tiles routes."""
