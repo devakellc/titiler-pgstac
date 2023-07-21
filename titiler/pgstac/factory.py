@@ -171,7 +171,7 @@ class MosaicTilerFactory(BaseTilerFactory):
                 ) as src_dst:
                     image, assets = src_dst.feature(
                         geojson.dict(exclude_none=True),
-                        pixel_selection=pixel_selection.method(),
+                        pixel_selection=pixel_selection,
                         threads=threads,
                         max_size=max_size,
                         **layer_params,
