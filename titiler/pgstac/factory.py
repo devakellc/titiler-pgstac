@@ -136,6 +136,9 @@ class MosaicTilerFactory(BaseTilerFactory):
             layer_params=Depends(self.layer_dependency),
             dataset_params=Depends(self.dataset_dependency),
             pixel_selection=Depends(self.pixel_selection_dependency),
+            max_size: Annotated[
+                int, Query(description="Maximum image size to read onto.")
+            ] = 1024,
             buffer: Annotated[
                 Optional[float],
                 Query(
