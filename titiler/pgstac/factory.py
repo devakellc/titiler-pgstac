@@ -163,7 +163,7 @@ class MosaicTilerFactory(BaseTilerFactory):
             """Create image from a geojson feature."""
             threads = int(os.getenv("MOSAIC_CONCURRENCY", MAX_THREADS))
 
-            with rasterio.Env(**self.gdal_config):
+            with rasterio.Env(**env):
                 with self.reader(
                     searchid,
                     reader_options={**reader_params},
